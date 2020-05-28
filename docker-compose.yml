@@ -1,0 +1,14 @@
+version: '3.1'
+
+services:
+  compiler:
+    build: .
+    ports:
+      - 8080:8080
+    volumes:
+      # - .:/workarea
+      - build:/workarea/target
+      - cargo:/root/.cargo
+volumes:
+  build:
+  cargo:

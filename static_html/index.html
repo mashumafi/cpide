@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>ACE in Action</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <style type="text/css" media="screen">
+        #editor {
+            position: absolute;
+            top: 0;
+            right: 50%;
+            bottom: 0;
+            left: 0;
+        }
+
+        #input {
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 66%;
+            left: 50%;
+        }
+
+        #output {
+            position: absolute;
+            top: 35%;
+            right: 0;
+            bottom: 33%;
+            left: 50%;
+        }
+
+        #result {
+            position: absolute;
+            top: 70%;
+            right: 0;
+            bottom: 0;
+            left: 50%;
+        }
+
+        #diff {
+            width: 100%;
+            height: 100%;
+        }
+
+        .add {
+            color: green;
+        }
+
+        .rem {
+            color: red;
+        }
+
+        .success {
+            color: green;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="editor"></div>
+    <div id="input"></div>
+    <div id="output"></div>
+    <div id="result">
+        <button id="compile">
+            Compile
+        </button>
+        <select id="template">
+            <option value=""></option>
+            <option value="/basic.cpp">Basic</option>
+        </select>
+        <select id="delimiter">
+            <option value="\n\n">\n\n</option>
+            <option value="\n">\n</option>
+            <option value=" ">Space</option>
+        </select>
+        <button id="reset">
+            Reset
+        </button>
+
+        <div id="diff"></div>
+    </div>
+
+    <script src="/jquery/dist/jquery.min.js" type="text/javascript" charset="utf-8"></script>
+    <script src="/ace/build/src-min/ace.js" type="text/javascript" charset="utf-8"></script>
+    <script>
+        var fontSize = "20px";
+
+        var code_editor = ace.edit("editor");
+        code_editor.setTheme("ace/theme/monokai");
+        code_editor.session.setMode("ace/mode/c_cpp");
+        code_editor.setFontSize(fontSize);
+
+        var input_editor = ace.edit("input");
+        input_editor.setTheme("ace/theme/monokai");
+        input_editor.session.setMode("ace/mode/plain_text");
+        input_editor.setFontSize(fontSize);
+
+        var output_editor = ace.edit("output");
+        output_editor.setTheme("ace/theme/monokai");
+        output_editor.session.setMode("ace/mode/plain_text");
+        output_editor.setFontSize(fontSize);
+
+        var diff_editor = ace.edit("diff");
+        diff_editor.setTheme("ace/theme/monokai");
+        diff_editor.session.setMode("ace/mode/diff");
+        diff_editor.setFontSize(fontSize);
+        diff_editor.setReadOnly(true);
+    </script>
+    <script>
+        function replaceAll(string, search, replace) {
+            return string.split(search).join(replace);
+        }
+        const replaceNewLine = s => {
+            return replaceAll(s, "\\n", "\n");
+        };
+
+        var setTemplate = code => {
+            code_editor.setValue(code);
+            input_editor.setValue("");
+            output_editor.setValue("");
+        }
+
+        var template = jQuery("#template");
+        template.change(() => {
+            if ("" == template.val()) {
+                setTemplate("");
+            } else {
+                jQuery.get(template.val(), code => {
+                    setTemplate(code);
+                });
+            }
+        });
+
+        $('#reset').click(e => {
+            template.change();
+        });
+
+        $('#compile').click(e => {
+            diff_editor.setValue("@@ Compiling (" + new Date() + ") @@");
+            jQuery.ajax({
+                url: "/compile",
+                type: "POST",
+                data: JSON.stringify({
+                    code: code_editor.getValue(),
+                    input: {
+                        text: input_editor.getValue(),
+                        delimiter: replaceNewLine(jQuery("#delimiter").val())
+                    },
+                    output: output_editor.getValue()
+                }),
+                success: data => {
+                    if (data.compiler.err) {
+                        diff_editor.setValue(data.compiler.err);
+                    } else if (data.diff) {
+                        diff_editor.setValue(data.diff);
+                    } else {
+                        diff_editor.setValue("@@ Success @@");
+                    }
+                },
+                error: function (request, status, error) {
+                    diff_editor.setValue("@@ " + status + " " + error + " @@");
+                },
+                contentType: "application/json; charset=utf-8",
+                dataType: "json",
+            })
+        });
+    </script>
+</body>
+
+</html>
